@@ -1,0 +1,102 @@
+<html><head><base href="https://websim.io/collaborative-draw/">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Collaborative Drawing Board</title>
+<style>
+    body, html {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden;
+    }
+    #canvas {
+        width: 100%;
+        height: 100%;
+        cursor: crosshair;
+    }
+    #colorPicker {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+    }
+    #brushSize {
+        position: absolute;
+        top: 10px;
+        left: 70px;
+        width: 100px;
+    }
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<input type="color" id="colorPicker" value="#000000">
+<input type="range" id="brushSize" min="1" max="50" value="5">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.3.2/socket.io.js"></script>
+<script>
+const socket = io('https://websim.io');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const colorPicker = document.getElementById('colorPicker');
+const brushSize = document.getElementById('brushSize');
+
+let isDrawing = false;
+let lastX = 0;
+let lastY = 0;
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+function draw(x, y, color, size, emit) {
+    ctx.beginPath();
+    ctx.moveTo(lastX, lastY);
+    ctx.lineTo(x, y);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = size;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+    
+    lastX = x;
+    lastY = y;
+
+    if (emit) {
+        socket.emit('draw', {
+            x: x / canvas.width,
+            y: y / canvas.height,
+            color: color,
+            size: size
+        });
+    }
+}
+
+canvas.addEventListener('mousedown', (e) => {
+    isDrawing = true;
+    [lastX, lastY] = [e.clientX, e.clientY];
+});
+
+canvas.addEventListener('mousemove', (e) => {
+    if (isDrawing) {
+        draw(e.clientX, e.clientY, colorPicker.value, brushSize.value, true);
+    }
+});
+
+canvas.addEventListener('mouseup', () => isDrawing = false);
+canvas.addEventListener('mouseout', () => isDrawing = false);
+
+socket.on('draw', (data) => {
+    draw(
+        data.x * canvas.width,
+        data.y * canvas.height,
+        data.color,
+        data.size,
+        false
+    );
+});
+
+window.addEventListener('resize', () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+});
+</script>
+</body>
+</html>
